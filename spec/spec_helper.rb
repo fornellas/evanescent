@@ -1,3 +1,4 @@
+$ERROR_INFO = nil
 require 'simplecov'
 SimpleCov.start
 
