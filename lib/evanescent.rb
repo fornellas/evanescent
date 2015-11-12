@@ -1,0 +1,2 @@
+class Evanescent
+end
