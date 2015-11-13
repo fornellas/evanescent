@@ -55,6 +55,7 @@ RSpec.describe Evanescent do
         expect(files_count).to eq(2)
       end
     end
+    let(:tz) { Time.now.strftime('%z') }
     context 'hourly' do
       let(:evanescent) do
         described_class.new(
@@ -64,7 +65,7 @@ RSpec.describe Evanescent do
         )
       end
       let(:interval) { 3600 }
-      let(:start_time) { Time.parse('2015-11-03 00:00:00 -0200') }
+      let(:start_time) { Time.parse("2015-11-03 00:00:00 #{tz}") }
       let(:sufixes) do
         [
           '2015110301',
@@ -82,7 +83,7 @@ RSpec.describe Evanescent do
         )
       end
       let(:interval) { 3600*24 }
-      let(:start_time) { Time.parse('2015-11-03 00:00:00 -0200') }
+      let(:start_time) { Time.parse("2015-11-03 00:00:00 #{tz}") }
       let(:sufixes) do
         [
           '20151104',
