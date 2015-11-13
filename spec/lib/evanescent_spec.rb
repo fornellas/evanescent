@@ -41,7 +41,6 @@ RSpec.describe Evanescent do
         evanescent.write(data_b = data.shift)
         second_data = data_a + data_b
         expect(cat(path)).to eq(second_data)
-        puts `ls -lh #{prefix}`
         expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(first_data)
 
         Timecop.freeze(start_time + interval*2)
@@ -65,11 +64,11 @@ RSpec.describe Evanescent do
         )
       end
       let(:interval) { 3600 }
-      let(:start_time) { Time.parse('2015-11-12 00:00:00 -0200') }
+      let(:start_time) { Time.parse('2015-11-03 00:00:00 -0200') }
       let(:sufixes) do
         [
-          '2015111201',
-          '2015111202',
+          '2015110301',
+          '2015110302',
         ]
       end
       include_examples :rotation
@@ -83,11 +82,11 @@ RSpec.describe Evanescent do
         )
       end
       let(:interval) { 3600*24 }
-      let(:start_time) { Time.parse('2015-11-12 00:00:00 -0200') }
+      let(:start_time) { Time.parse('2015-11-03 00:00:00 -0200') }
       let(:sufixes) do
         [
-          '20151113',
-          '20151114',
+          '20151104',
+          '20151105',
         ]
       end
       include_examples :rotation
