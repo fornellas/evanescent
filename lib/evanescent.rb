@@ -1,4 +1,6 @@
 require 'chronic_duration'
+require 'fileutils'
+require 'zlib'
 
 # IO like object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
 #* Rotation by time / date.
