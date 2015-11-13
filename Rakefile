@@ -1,3 +1,3 @@
-task :spec do
-  sh 'bundle exec rspec'
-end
+require 'rspec/core/rake_task'
+RSpec::Core::RakeTask.new(:spec)
+task :default => :spec
