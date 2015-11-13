@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'evanescent'
-  s.version     = '0.0.0'
+  s.version     = '1.0.0'
   s.summary     = 'IO like object that allows logging rotation, compression and purging.'
   s.description = "This gem provides an IO like object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
   * Rotation by time / date.
