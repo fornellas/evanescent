@@ -33,6 +33,7 @@ RSpec.describe Evanescent do
         Timecop.freeze(start_time+interval/2)
         evanescent.write(data_b = data.shift)
         first_data = data_a + data_b
+        evanescent.wait_compression
         expect(cat(path)).to eq(first_data)
 
         Timecop.freeze(start_time + interval)
@@ -40,6 +41,7 @@ RSpec.describe Evanescent do
         Timecop.freeze(start_time + interval + interval/2)
         evanescent.write(data_b = data.shift)
         second_data = data_a + data_b
+        evanescent.wait_compression
         expect(cat(path)).to eq(second_data)
         expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(first_data)
 
@@ -48,6 +50,7 @@ RSpec.describe Evanescent do
         Timecop.freeze(start_time + interval*2 + interval/2)
         evanescent.write(data_b = data.shift)
         third_data = data_a + data_b
+        evanescent.wait_compression
         expect(cat(path)).to eq(third_data)
         expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(second_data)
 

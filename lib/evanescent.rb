@@ -27,7 +27,8 @@ class Evanescent
     @keep = ChronicDuration.parse(opts[:keep])
     @mutex = Mutex.new
     @last_prefix = make_prefix(Time.now)
-    open_file
+    @io = nil
+    @compress_thread = nil
   end
 
   # Writes to #path and rotate, compress and purge if necessary.
@@ -36,6 +37,7 @@ class Evanescent
       rotate
       compress
       purge
+      open_io
       @io.write(string)
     end
   end
@@ -47,11 +49,26 @@ class Evanescent
     end
   end
 
+  # Compression is done in a separate thread. Thus method suspends current thread execution until existing compression thread returns. If no compression thread is running, returns immediately.
+  def wait_compression
+    if @compress_thread
+      begin
+        @compress_thread.join
+      rescue
+        warn("Compression thread failed: #{$!}")
+      ensure
+        @compress_thread = nil
+      end
+    end
+  end
+
   private
 
-  def open_file
-    @io = File.open(path, File::APPEND | File::CREAT | File::WRONLY)
-    @io.sync = true
+  def open_io
+    unless @io
+      @io = File.open(path, File::APPEND | File::CREAT | File::WRONLY)
+      @io.sync = true
+    end
   end
 
   PARAMS = {
@@ -71,33 +88,35 @@ class Evanescent
 
   def rotate
     curr_suffix = make_prefix(Time.now)
-    if curr_suffix != @last_prefix
-      @io.close
-      rotated = "#{path}.#{curr_suffix}"
-      begin
-        FileUtils.mv(path, rotated)
-      rescue
-        warn("Error renaming '#{path}' to '#{rotated}': #{$!}")
-      end
-      open_file
-      @last_prefix = curr_suffix
+    return if curr_suffix == @last_prefix
+    @io.close
+    @io = nil
+    rotated = "#{path}.#{curr_suffix}"
+    begin
+      FileUtils.mv(path, rotated)
+    rescue
+      warn("Error renaming '#{path}' to '#{rotated}': #{$!}")
     end
+    @last_prefix = curr_suffix
   end
 
   def compress
-    Dir.glob("#{path}.#{PARAMS[rotation][:glob]}").each do |uncompressed|
-      compressed = "#{uncompressed}.gz"
-      Zlib::GzipWriter.open(compressed) do |gz|
-        gz.mtime = File.mtime(uncompressed)
-        gz.orig_name = uncompressed
-        File.open(uncompressed, 'r') do |io|
-          io.binmode
-          io.each do |data|
-            gz.write(data)
+    wait_compression
+    @compress_thread = Thread.new do
+      Dir.glob("#{path}.#{PARAMS[rotation][:glob]}").each do |uncompressed|
+        compressed = "#{uncompressed}.gz"
+        Zlib::GzipWriter.open(compressed) do |gz|
+          gz.mtime = File.mtime(uncompressed)
+          gz.orig_name = uncompressed
+          File.open(uncompressed, 'r') do |io|
+            io.binmode
+            io.each do |data|
+              gz.write(data)
+            end
           end
         end
+        File.delete(uncompressed)
       end
-      File.delete(uncompressed)
     end
   rescue
     warn("Error compressing files: #{$!}")
