@@ -1,7 +1,10 @@
 # evanescent
 
+[![Build Status](https://travis-ci.org/fornellas/evanescent.svg?branch=master)](https://travis-ci.org/fornellas/evanescent)
+[![Gem Version](https://badge.fury.io/rb/evanescent.svg)](http://badge.fury.io/rb/evanescent)
 [![GitHub issues](https://img.shields.io/github/issues/fornellas/evanescent.svg)](https://github.com/fornellas/evanescent/issues)
 [![GitHub license](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://raw.githubusercontent.com/fornellas/evanescent/master/LICENSE)
+[![Downloads](http://ruby-gem-downloads-badge.herokuapp.com/evanescent?type=total)](https://rubygems.org/gems/evanescent)
 
 * Home: https://github.com/fornellas/evanescent/
 * Bugs: https://github.com/fornellas/evanescent/issues
