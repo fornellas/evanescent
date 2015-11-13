@@ -23,10 +23,35 @@ Its purpuse is to supplement logging classes, allowing everything related to log
 
 This gem uses [Semantic Versioning](http://semver.org/), so you should add to your .gemspec something like:
 ```ruby
-  s.add_runtime_dependency 'evanescent', '~> 0.0'
+  s.add_runtime_dependency 'evanescent', '~> 1.0'
 ```
 Please, always check latest available version!
 
-## Examples
+## Example
 
-TODO
+To use it with Logger, just pass it as a log device.
+
+```
+require 'logger'
+require 'evanescent'
+require 'timecop'
+
+start_time = Time.now
+one_hour = 3600
+
+io = Evanescent.new(
+  path: 'test.log',
+  rotation: :hourly,
+  keep: '1 hour',
+)
+
+logger = Logger.new(io)
+Timecop.freeze(start_time)
+logger.info 'first message'
+Timecop.freeze(start_time + one_hour)
+logger.info 'second message'
+Timecop.freeze(start_time + one_hour * 2)
+logger.info 'compressed file' # first message file will be purged
+Timecop.freeze(start_time + one_hour * 3)
+logger.info 'uncompressed file' # second message file will be purged
+```
