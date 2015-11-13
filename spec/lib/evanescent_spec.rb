@@ -41,7 +41,7 @@ RSpec.describe Evanescent do
         evanescent.write(data_b = data.shift)
         second_data = data_a + data_b
         expect(cat(path)).to eq(second_data)
-        `ls -lh #{prefix}`
+        puts `ls -lh #{prefix}`
         expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(first_data)
 
         Timecop.freeze(start_time + interval*2)
