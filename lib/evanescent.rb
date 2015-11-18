@@ -74,11 +74,13 @@ class Evanescent
   PARAMS = {
     hourly: {
       strftime: '%Y%m%d%H',
-      glob: '[0-9]' * (4 + 2 * 3)
+      glob: '[0-9]' * (4 + 2 * 3),
+      interval: 3600
     },
     daily: {
       strftime: '%Y%m%d',
-      glob: '[0-9]' * (4 + 2 * 2)
+      glob: '[0-9]' * (4 + 2 * 2),
+      interval: 3600 * 24
     }
   }
 
@@ -87,17 +89,37 @@ class Evanescent
   end
 
   def rotate
+    if @io
+      rotate_with_open_io
+    else
+      rotate_with_closed_io
+    end
+  end
+
+  def rotate_with_open_io
     curr_suffix = make_prefix(Time.now)
     return if curr_suffix == @last_prefix
     @io.close
     @io = nil
-    rotated = "#{path}.#{curr_suffix}"
+    do_rotation("#{path}.#{curr_suffix}")
+    @last_prefix = curr_suffix
+  end
+
+  def rotate_with_closed_io
+    return unless File.exist?(path)
+    curr_suffix = make_prefix(Time.now+PARAMS[rotation][:interval])
+    rotation_suffix = make_prefix(File.mtime(path) + PARAMS[rotation][:interval])
+    return if curr_suffix == rotation_suffix
+    do_rotation("#{path}.#{rotation_suffix}")
+    @last_prefix = curr_suffix
+  end
+
+  def do_rotation new_path
     begin
-      FileUtils.mv(path, rotated)
+      FileUtils.mv(path, new_path)
     rescue
       warn("Error renaming '#{path}' to '#{rotated}': #{$!}")
     end
-    @last_prefix = curr_suffix
   end
 
   def compress
