@@ -118,7 +118,7 @@ class Evanescent
     begin
       FileUtils.mv(path, new_path)
     rescue
-      warn("Error renaming '#{path}' to '#{rotated}': #{$!}")
+      warn("Error renaming '#{path}' to '#{new_path}': #{$!}")
     end
   end
 
