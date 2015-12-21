@@ -55,3 +55,6 @@ logger.info 'compressed file' # first message file will be purged
 Timecop.freeze(start_time + one_hour * 3)
 logger.info 'uncompressed file' # second message file will be purged
 ```
+## Limitations
+
+Although Evanescent supports mult-thread operation, inter-process locking is not currently implemented, and behavior is unpredicted in this situation.
