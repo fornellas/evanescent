@@ -18,6 +18,10 @@ RSpec.describe Evanescent do
     d
   end
   context 'rotation' do
+    before(:example) do
+      Timecop.freeze(start_time)
+      expect(evanescent).not_to receive(:warn)
+    end
     def cat path
       File.open(path, 'r').read
     end
@@ -77,7 +81,6 @@ RSpec.describe Evanescent do
     end
     shared_examples :regular_rotation do
       it 'rotates and compresses' do
-        Timecop.freeze(start_time)
         evanescent.write(data_a = data.shift)
         Timecop.freeze(start_time+interval/2)
         evanescent.write(data_b = data.shift)
@@ -100,7 +103,6 @@ RSpec.describe Evanescent do
         evanescent.wait_compression
         expect(cat(path)).to eq(third_data)
         expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(second_data)
-
         files_count = Dir.glob("#{prefix}/*").size
         expect(files_count).to eq(2)
       end

@@ -36,11 +36,14 @@ class Evanescent
     @mutex.synchronize do
       # All methods here must have exceptions threated, to mimic Logger's default behaviour (https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L647)
       purge
-      rotate
-      compress
+      rotate_and_compress
       # No exceptions threated here on, as they should be handled by caller (eg: https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L653)
       open_io
-      @io.write(string)
+      if @io
+        @io.write(string)
+      else
+        warn("Unable to log: '#{path}' not open!")
+      end
     end
   end
 
@@ -71,6 +74,8 @@ class Evanescent
       @io = File.open(path, File::APPEND | File::CREAT | File::WRONLY)
       @io.sync = true
     end
+  rescue
+    warn("Unable to open '#{path}': #{$!} (#{$!.class})")
   end
 
   PARAMS = {
@@ -106,33 +111,44 @@ class Evanescent
     warn("Error purging old files: #{$!} (#{$!.class})")
   end
 
-  def rotate
-    if @io
-      rotate_with_open_io
+  def rotate_and_compress
+    new_path = if @io
+      new_path_with_open_io
     else
-      rotate_with_closed_io
+      new_path_with_closed_io
     end
+    if new_path
+      mv_path(new_path)
+      compress
+    end
+  rescue
+    warn("Error trying to do rotation / compression: #{$!} (#{$!.class})")
   end
 
-  def rotate_with_open_io
+  def new_path_with_open_io
     curr_suffix = make_prefix(Time.now)
-    return if curr_suffix == @last_prefix
-    @io.close rescue nil # Same as https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L760
+    return nil if curr_suffix == @last_prefix
+    # Same as https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L760
+    begin
+      @io.close
+    rescue
+      warn("Error closing '#{path}': #{$!} (#{$!.class})")
+    end
     @io = nil
-    do_rotation("#{path}.#{curr_suffix}")
     @last_prefix = curr_suffix
+    "#{path}.#{curr_suffix}"
   end
 
-  def rotate_with_closed_io
-    return unless File.exist?(path)
+  def new_path_with_closed_io
+    return nil unless File.exist?(path)
     curr_suffix = make_prefix(Time.now+PARAMS[rotation][:interval])
     rotation_suffix = make_prefix(File.mtime(path) + PARAMS[rotation][:interval])
-    return if curr_suffix == rotation_suffix
-    do_rotation("#{path}.#{rotation_suffix}")
+    return nil if curr_suffix == rotation_suffix
     @last_prefix = curr_suffix
+    "#{path}.#{rotation_suffix}"
   end
 
-  def do_rotation new_path
+  def mv_path new_path
     FileUtils.mv(path, new_path)
   rescue
     warn("Error renaming '#{path}' to '#{new_path}': #{$!} (#{$!.class})")
