@@ -26,7 +26,7 @@ class Evanescent
     @rotation = opts[:rotation]
     @keep = ChronicDuration.parse(opts[:keep])
     @mutex = Mutex.new
-    @last_prefix = make_prefix(Time.now)
+    @last_prefix = make_suffix(Time.now)
     @io = nil
     @compress_thread = nil
   end
@@ -34,15 +34,21 @@ class Evanescent
   # Writes to #path and rotate, compress and purge if necessary.
   def write string
     @mutex.synchronize do
-      # All methods here must have exceptions threated, to mimic Logger's default behaviour (https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L647)
       purge
-      rotate_and_compress
-      # No exceptions threated here on, as they should be handled by caller (eg: https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L653)
+      if new_path = rotation_path
+        # All methods here must have exceptions threated. See:
+        # https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L647
+        mv_path(new_path)
+        compress
+      end
       open_io
       if @io
+        # No exceptions threated here, they should be handled by caller. See:
+        # https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L653
         @io.write(string)
       else
         warn("Unable to log: '#{path}' not open!")
+        0
       end
     end
   end
@@ -54,7 +60,7 @@ class Evanescent
     end
   end
 
-  # Compression is done in a separate thread. Thus method suspends current thread execution until existing compression thread returns. If no compression thread is running, returns immediately.
+  # Compression is done in a separate thread. This method suspends current thread execution until existing compression thread returns. If no compression thread is running, returns immediately.
   def wait_compression
     if @compress_thread
       begin
@@ -69,15 +75,6 @@ class Evanescent
 
   private
 
-  def open_io
-    unless @io
-      @io = File.open(path, File::APPEND | File::CREAT | File::WRONLY)
-      @io.sync = true
-    end
-  rescue
-    warn("Unable to open '#{path}': #{$!} (#{$!.class})")
-  end
-
   PARAMS = {
     hourly: {
       strftime: '%Y%m%d%H',
@@ -91,8 +88,41 @@ class Evanescent
     }
   }
 
-  def make_prefix time
+  def make_suffix time
     time.strftime(PARAMS[rotation][:strftime])
+  end
+
+  def open_io
+    unless @io
+      @io = File.open(path, File::APPEND | File::CREAT | File::WRONLY)
+      @io.sync = true
+    end
+  rescue
+    warn("Unable to open '#{path}': #{$!} (#{$!.class})")
+  end
+
+  # Returns new path for rotation. If no rotation is needed, returns nil.
+  def rotation_path
+    if @io
+      curr_suffix = make_suffix(Time.now)
+      return nil if curr_suffix == @last_prefix
+      # Same as https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L760
+      begin
+        @io.close
+      rescue
+        warn("Error closing '#{path}': #{$!} (#{$!.class})")
+      end
+      @io = nil
+      @last_prefix = curr_suffix
+      "#{path}.#{curr_suffix}"
+    else
+      return nil unless File.exist?(path)
+      curr_suffix = make_suffix(Time.now+PARAMS[rotation][:interval])
+      rotation_suffix = make_suffix(File.mtime(path) + PARAMS[rotation][:interval])
+      return nil if curr_suffix == rotation_suffix
+      @last_prefix = curr_suffix
+      "#{path}.#{rotation_suffix}"
+    end
   end
 
   def purge
@@ -109,43 +139,6 @@ class Evanescent
     end
   rescue
     warn("Error purging old files: #{$!} (#{$!.class})")
-  end
-
-  def rotate_and_compress
-    new_path = if @io
-      new_path_with_open_io
-    else
-      new_path_with_closed_io
-    end
-    if new_path
-      mv_path(new_path)
-      compress
-    end
-  rescue
-    warn("Error trying to do rotation / compression: #{$!} (#{$!.class})")
-  end
-
-  def new_path_with_open_io
-    curr_suffix = make_prefix(Time.now)
-    return nil if curr_suffix == @last_prefix
-    # Same as https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L760
-    begin
-      @io.close
-    rescue
-      warn("Error closing '#{path}': #{$!} (#{$!.class})")
-    end
-    @io = nil
-    @last_prefix = curr_suffix
-    "#{path}.#{curr_suffix}"
-  end
-
-  def new_path_with_closed_io
-    return nil unless File.exist?(path)
-    curr_suffix = make_prefix(Time.now+PARAMS[rotation][:interval])
-    rotation_suffix = make_prefix(File.mtime(path) + PARAMS[rotation][:interval])
-    return nil if curr_suffix == rotation_suffix
-    @last_prefix = curr_suffix
-    "#{path}.#{rotation_suffix}"
   end
 
   def mv_path new_path
