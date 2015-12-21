@@ -34,9 +34,11 @@ class Evanescent
   # Writes to #path and rotate, compress and purge if necessary.
   def write string
     @mutex.synchronize do
+      # All methods here must have exceptions threated, to mimic Logger's default behaviour (https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L647)
+      purge
       rotate
       compress
-      purge
+      # No exceptions threated here on, as they should be handled by caller (eg: https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L653)
       open_io
       @io.write(string)
     end
@@ -55,7 +57,7 @@ class Evanescent
       begin
         @compress_thread.join
       rescue
-        warn("Compression thread failed: #{$!}")
+        warn("Compression thread failed: #{$!} (#{$!.class})")
       ensure
         @compress_thread = nil
       end
@@ -88,6 +90,22 @@ class Evanescent
     time.strftime(PARAMS[rotation][:strftime])
   end
 
+  def purge
+    Dir.glob("#{path}.#{PARAMS[rotation][:glob]}.gz").each do |compressed|
+      time_extractor = Regexp.new(
+        '^' + Regexp.escape("#{path}.") + "(?<time>.+)" + Regexp.escape(".gz") + '$'
+      )
+      time_string = compressed.match(time_extractor)[:time]
+      compressed_time = Time.strptime(time_string, PARAMS[rotation][:strftime])
+      age = Time.now - compressed_time
+      if age > keep
+        File.delete(compressed)
+      end
+    end
+  rescue
+    warn("Error purging old files: #{$!} (#{$!.class})")
+  end
+
   def rotate
     if @io
       rotate_with_open_io
@@ -99,7 +117,7 @@ class Evanescent
   def rotate_with_open_io
     curr_suffix = make_prefix(Time.now)
     return if curr_suffix == @last_prefix
-    @io.close
+    @io.close rescue nil # Same as https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L760
     @io = nil
     do_rotation("#{path}.#{curr_suffix}")
     @last_prefix = curr_suffix
@@ -115,11 +133,9 @@ class Evanescent
   end
 
   def do_rotation new_path
-    begin
-      FileUtils.mv(path, new_path)
-    rescue
-      warn("Error renaming '#{path}' to '#{new_path}': #{$!}")
-    end
+    FileUtils.mv(path, new_path)
+  rescue
+    warn("Error renaming '#{path}' to '#{new_path}': #{$!} (#{$!.class})")
   end
 
   def compress
@@ -141,23 +157,7 @@ class Evanescent
       end
     end
   rescue
-    warn("Error compressing files: #{$!}")
-  end
-
-  def purge
-    Dir.glob("#{path}.#{PARAMS[rotation][:glob]}.gz").each do |compressed|
-      time_extractor = Regexp.new(
-        '^' + Regexp.escape("#{path}.") + "(?<time>.+)" + Regexp.escape(".gz") + '$'
-      )
-      time_string = compressed.match(time_extractor)[:time]
-      compressed_time = Time.strptime(time_string, PARAMS[rotation][:strftime])
-      age = Time.now - compressed_time
-      if age > keep
-        File.delete(compressed)
-      end
-    end
-  rescue
-    warn("Error purging old files: #{$!}")
+    warn("Error compressing files: #{$!} (#{$!.class})")
   end
 
 end
