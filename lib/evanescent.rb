@@ -133,7 +133,7 @@ class Evanescent
       time_string = compressed.match(time_extractor)[:time]
       compressed_time = Time.strptime(time_string, PARAMS[rotation][:strftime])
       age = Time.now - compressed_time
-      if age > keep
+      if age >= keep
         File.delete(compressed)
       end
     end

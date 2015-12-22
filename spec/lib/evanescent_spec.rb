@@ -81,29 +81,39 @@ RSpec.describe Evanescent do
     end
     context 'new file' do
       shared_examples :regular_rotation do
-        it 'rotates and compresses' do
-          evanescent.write(data_a = data.shift)
+        let(:first_gzip) { "#{path}.#{time_suffixes[0]}.gz" }
+        let(:second_gzip) { "#{path}.#{time_suffixes[1]}.gz" }
+        it 'does not rotate within first period' do
+          evanescent.write(first_write = data.shift)
           Timecop.freeze(start_time+interval/2)
-          evanescent.write(data_b = data.shift)
-          first_data = data_a + data_b
+          evanescent.write(second_write = data.shift)
+          all_writes = first_write + second_write
           evanescent.wait_compression
-          expect(cat(path)).to eq(first_data)
-          Timecop.freeze(start_time + interval)
-          evanescent.write(data_a = data.shift)
-          Timecop.freeze(start_time + interval + interval/2)
-          evanescent.write(data_b = data.shift)
-          second_data = data_a + data_b
+          expect(cat(path)).to eq(all_writes)
+          files_count = Dir.glob("#{prefix}/*").size
+          expect(files_count).to eq(1)
+        end
+        it 'rotates after first period' do
+          evanescent.write(rotated_write = data.shift)
+          Timecop.freeze(Time.now + interval)
+          evanescent.write(non_rotated_write = data.shift)
           evanescent.wait_compression
-          expect(cat(path)).to eq(second_data)
-          expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(first_data)
-          Timecop.freeze(start_time + interval*2)
-          evanescent.write(data_a = data.shift)
-          Timecop.freeze(start_time + interval*2 + interval/2)
-          evanescent.write(data_b = data.shift)
-          third_data = data_a + data_b
+          expect(cat(path)).to eq(non_rotated_write)
+          expect(zcat(first_gzip)).to eq(rotated_write)
+          files_count = Dir.glob("#{prefix}/*").size
+          expect(files_count).to eq(2)
+        end
+        it 'purges after "keep" limit' do
+          evanescent.write(purged_write = data.shift)
           evanescent.wait_compression
-          expect(cat(path)).to eq(third_data)
-          expect(zcat("#{path}.#{sufixes.shift}.gz")).to eq(second_data)
+          Timecop.freeze(Time.now + interval)
+          evanescent.write(compressed_write = data.shift)
+          evanescent.wait_compression
+          Timecop.freeze(Time.now + interval)
+          evanescent.write(uncompressed_write = data.shift)
+          evanescent.wait_compression
+          expect(cat(path)).to eq(uncompressed_write)
+          expect(zcat(second_gzip)).to eq(compressed_write)
           files_count = Dir.glob("#{prefix}/*").size
           expect(files_count).to eq(2)
         end
@@ -118,7 +128,7 @@ RSpec.describe Evanescent do
         end
         let(:interval) { 3600 }
         let(:start_time) { Time.parse("2015-11-03 00:00:00 #{tz}") }
-        let(:sufixes) do
+        let(:time_suffixes) do
           [
             '2015110301',
             '2015110302',
@@ -136,7 +146,7 @@ RSpec.describe Evanescent do
         end
         let(:interval) { 3600*24 }
         let(:start_time) { Time.parse("2015-11-03 00:00:00 #{tz}") }
-        let(:sufixes) do
+        let(:time_suffixes) do
           [
             '20151104',
             '20151105',
