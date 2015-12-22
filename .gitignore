@@ -1,3 +1,4 @@
 *.gem
 spec/examples.txt
 coverage/
+doc/
