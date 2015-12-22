@@ -1,0 +1,2 @@
+- Only start compression thread after rotation.
+- Test: No purge / compression unless during rotation.

@@ -34,10 +34,10 @@ class Evanescent
   # Writes to #path and rotate, compress and purge if necessary.
   def write string
     @mutex.synchronize do
-      purge
       if new_path = rotation_path
         # All methods here must have exceptions threated. See:
         # https://github.com/ruby/ruby/blob/3e92b635fb5422207b7bbdc924e292e51e21f040/lib/logger.rb#L647
+        purge
         mv_path(new_path)
         compress
       end
