@@ -104,7 +104,7 @@ RSpec.describe Evanescent do
           expect(files_count).to eq(2)
         end
         it 'purges after "keep" limit' do
-          evanescent.write(purged_write = data.shift)
+          evanescent.write(data.shift)
           evanescent.wait_compression
           Timecop.freeze(Time.now + interval)
           evanescent.write(compressed_write = data.shift)
@@ -158,14 +158,120 @@ RSpec.describe Evanescent do
   end
   context 'failures' do
     context '#write' do
+      subject do
+        described_class.new(
+          path: path,
+          rotation: :hourly,
+          keep: '1 hour',
+        )
+      end
+      let(:uncompressed_path) { path + '.2015122312' }
+      let(:compressed_path) { "#{uncompressed_path}.gz" }
+      let(:interval) { 3600 }
       context '#purge' do
-
+        shared_examples :purge_not_to_raise do
+          it 'does not raise' do
+            expect(subject).to receive(:warn).with(String)
+            expect do
+              subject.send(:purge)
+            end.not_to raise_error
+          end
+        end
+        context 'listing failure' do
+          before(:example) do
+            expect(Dir).to receive(:glob).and_raise(StandardError)
+          end
+          include_examples :purge_not_to_raise
+        end
+        context 'deletion failure' do
+          before(:example) do
+            Timecop.freeze(Time.now)
+            subject.write('1')
+            subject.wait_compression
+            Timecop.freeze(Time.now + interval)
+            subject.write('2')
+            subject.wait_compression
+            Timecop.freeze(Time.now + interval)
+            expect(File).to receive(:delete).and_raise(StandardError)
+          end
+          include_examples :purge_not_to_raise
+        end
       end
       context '#rotate' do
-
+        before(:example) do
+          Timecop.freeze(Time.now)
+          subject.write('1')
+          Timecop.freeze(Time.now + interval)
+          expect(subject).to receive(:warn).with(String)
+        end
+        shared_examples :not_to_raise do
+          it 'does not raise' do
+            expect do
+              subject.write('2')
+            end.not_to raise_error
+          end
+        end
+        context 'closing failure' do
+          before(:example) do
+            expect(subject.instance_variable_get(:@io))
+              .to receive(:close)
+              .and_raise(StandardError)
+          end
+          include_examples :not_to_raise
+        end
+        context 'rename failure' do
+          before(:example) do
+            expect(FileUtils)
+            .to receive(:mv)
+            .and_raise(StandardError)
+          end
+          include_examples :not_to_raise
+        end
       end
       context '#compress' do
-
+        before(:example) do
+          expect(subject).to receive(:warn).with(String)
+        end
+        context 'listing failure' do
+          it 'does not raise' do
+            Timecop.freeze(Time.now)
+            subject.write('1')
+            subject.wait_compression
+            Timecop.freeze(Time.now + interval)
+            subject.write('2')
+            subject.wait_compression
+            Timecop.freeze(Time.now + interval)
+            expect(Dir).to receive(:glob).and_raise(StandardError)
+            expect do
+              subject.send(:compress)
+              subject.wait_compression
+            end.not_to raise_error
+          end
+        end
+        context 'compression failure' do
+          it 'does not raise' do
+            FileUtils.touch uncompressed_path
+            expect(Zlib::GzipWriter)
+              .to receive(:open).with(compressed_path).and_raise(StandardError)
+            expect(File).not_to receive(:delete)
+            expect do
+              subject.send(:compress)
+              subject.wait_compression
+            end.not_to raise_error
+          end
+        end
+        context 'deletion failure' do
+          it 'does not raise' do
+            FileUtils.touch uncompressed_path
+            expect(File)
+              .to receive(:delete)
+              .with(uncompressed_path).and_raise(StandardError)
+            expect do
+              subject.send(:compress)
+              subject.wait_compression
+            end.not_to raise_error
+          end
+        end
       end
     end
   end
