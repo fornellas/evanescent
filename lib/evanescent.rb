@@ -3,10 +3,12 @@ require 'fileutils'
 require 'zlib'
 
 # IO like object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
-#* Rotation by time / date.
-#* Compression of old files.
-#* Removal of old compressed files.
-# Its purpuse is to supplement logging classes, allowing everything related to logging management, to be done within Ruby, without relying on external tools (such as logrotate).
+#
+# * Hourly or daily rotation.
+# * Compression of rotated files.
+# * Removal of old compressed files.
+#
+# This functionality supplement logging classes, allowing everything related to logging management, to be done within Ruby, without relying on external tools (such as logrotate).
 class Evanescent
   # Current path being written to.
   attr_reader :path
@@ -31,7 +33,7 @@ class Evanescent
   # Must receive a Hash with:
   # +:path+:: Path where to write to.
   # +:rotation+:: Either +:hourly+ or +:daily+.
-  # +:keep+:: For how long to keep rotated files. It is parsed with ChronicDuration's natural language features. Examples: '1 day', '1 month'.
+  # +:keep+:: For how long to keep rotated files. It is parsed with chronic_duration Gem natural language features. Examples: '1 day', '1 month'.
   def initialize opts
     @path = opts[:path]
     @rotation = opts[:rotation]

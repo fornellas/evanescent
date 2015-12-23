@@ -6,15 +6,17 @@
 [![GitHub license](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://raw.githubusercontent.com/fornellas/evanescent/master/LICENSE)
 [![Downloads](http://ruby-gem-downloads-badge.herokuapp.com/evanescent?type=total)](https://rubygems.org/gems/evanescent)
 
-* Home: https://github.com/fornellas/evanescent/
-* Bugs: https://github.com/fornellas/evanescent/issues
+* Home: [https://github.com/fornellas/evanescent/](https://github.com/fornellas/evanescent/)
+* Bugs: [https://github.com/fornellas/evanescent/issues](https://github.com/fornellas/evanescent/issues)
 
 ## Description
 
 This gem provides an IO like object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
+
 * Hourly or daily rotation.
 * Compression of rotated files.
 * Removal of old compressed files.
+
 This functionality supplement logging classes, allowing everything related to logging management, to be done within Ruby, without relying on external tools (such as logrotate).
 
 ## Install
@@ -22,10 +24,12 @@ This functionality supplement logging classes, allowing everything related to lo
     gem install evanescent
 
 This gem uses [Semantic Versioning](http://semver.org/), so you should add to your .gemspec something like:
+
 ```ruby
   s.add_runtime_dependency 'evanescent', '~> 1.0'
 ```
-Please, always check latest available version!
+
+Please, always check latest [available](https://rubygems.org/gems/evanescent) version!
 
 ## Example
 
@@ -67,6 +71,7 @@ Dir.entries('.') # => [".", "..", "test.log", "test.log.2015122316.gz", "test.lo
 ### Generic usage
 
 Evanescent is an IO like object: it responds to <tt>:write</tt> and <tt>:close</tt>:
+
 ```ruby
 io = Evanescent.new(
   path: 'test.log',
