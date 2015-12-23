@@ -11,11 +11,11 @@
 
 ## Description
 
-This gem provides an IO object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
-* Rotation by time / date.
-* Compression of old files.
+This gem provides an IO like object, that can be used with any logging class (such as Ruby's native Logger). This object will save its input to a file, and allows:
+* Hourly or daily rotation.
+* Compression of rotated files.
 * Removal of old compressed files.
-Its purpuse is to supplement logging classes, allowing everything related to logging management, to be done within Ruby, without relying on external tools (such as logrotate).
+This functionality supplement logging classes, allowing everything related to logging management, to be done within Ruby, without relying on external tools (such as logrotate).
 
 ## Install
 
@@ -29,32 +29,54 @@ Please, always check latest available version!
 
 ## Example
 
-To use it with Logger, just pass it as a log device.
+### Logger
 
-```
-require 'logger'
+```ruby
 require 'evanescent'
 require 'timecop'
 
-start_time = Time.now
-one_hour = 3600
+logger = Evanescent.logger(
+  path: 'test.log',
+  rotation: :hourly,
+  keep: '2 hours',
+)
 
+logger.class # => Logger
+
+# Within first hour, only test.log will exist.
+Timecop.freeze(Time.now)
+logger.info 'first message'
+Dir.entries('.') # => [".", "..", "test.log"]
+
+# One hour later, rotation and compression will happen.
+Timecop.freeze(Time.now + 3600)
+logger.info 'second message'
+Dir.entries('.') # => [".", "..", "test.log", "test.log.2015122315.gz"]
+
+# Another hour later, we'll have 2 compressed files.
+Timecop.freeze(Time.now + 3600)
+logger.info 'third message'
+Dir.entries('.') # => [".", "..", "test.log", "test.log.2015122315.gz", "test.log.2015122316.gz"]
+
+# At last, after keep period, old compressed files are purged.
+Timecop.freeze(Time.now + 3600)
+logger.info 'fourth message'
+Dir.entries('.') # => [".", "..", "test.log", "test.log.2015122316.gz", "test.log.2015122317.gz"]
+```
+
+### Generic usage
+
+Evanescent is an IO like object: it responds to <tt>:write</tt> and <tt>:close</tt>:
+```ruby
 io = Evanescent.new(
   path: 'test.log',
   rotation: :hourly,
-  keep: '1 hour',
+  keep: '2 hours',
 )
-
-logger = Logger.new(io)
-Timecop.freeze(start_time)
-logger.info 'first message'
-Timecop.freeze(start_time + one_hour)
-logger.info 'second message'
-Timecop.freeze(start_time + one_hour * 2)
-logger.info 'compressed file' # first message file will be purged
-Timecop.freeze(start_time + one_hour * 3)
-logger.info 'uncompressed file' # second message file will be purged
+io.write('message') # writes message to test.log
+io.close
 ```
+
 ## Limitations
 
 Although Evanescent supports mult-thread operation, inter-process locking is not currently implemented, and behavior is unpredicted in this situation.

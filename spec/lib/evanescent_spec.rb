@@ -17,6 +17,41 @@ RSpec.describe Evanescent do
     end
     d
   end
+  context '::logger' do
+    shared_examples :logger do
+      subject do
+        described_class.logger(
+          path: path,
+          rotation: :hourly,
+          keep: '1 hour',
+        )
+      end
+      let(:message) { data.shift }
+      it 'returns Logger instance' do
+        expect(subject).to be_a(Logger)
+        subject.info message
+        contents = File.open(path, 'r').read
+        expect(contents).to include(message)
+        expect(contents).not_to eq(message)
+      end
+    end
+    context 'logger not required' do
+      # "unrequire" logger
+      before(:example) do
+        $LOADED_FEATURES.delete_if do |path|
+          path.match(/\/logger\.rb$/)
+        end
+        Object.send(:remove_const, :Logger) if Object.const_defined? :Logger
+      end
+      include_examples :logger
+    end
+    context 'logger already required' do
+      before(:example) do
+        require 'logger'
+      end
+      include_examples :logger
+    end
+  end
   context 'rotation' do
     before(:example) do
       Timecop.freeze(start_time)

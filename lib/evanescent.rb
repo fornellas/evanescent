@@ -17,6 +17,17 @@ class Evanescent
   # How long rotated files are kept (in seconds).
   attr_reader :keep
 
+  # Shortcut for: <tt>Logger.new(Evanescent.new(opts))</tt>.
+  # Requires logger if needed.
+  def self.logger opts
+    unless Object.const_defined? :Logger
+      require 'logger'
+    end
+    Logger.new(
+      self.new(opts)
+    )
+  end
+
   # Must receive a Hash with:
   # +:path+:: Path where to write to.
   # +:rotation+:: Either +:hourly+ or +:daily+.
